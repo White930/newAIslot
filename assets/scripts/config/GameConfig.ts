@@ -1,4 +1,6 @@
 // src/config/GameConfig.ts
+import slotData from './slotData.json';
+
 export default class GameConfig {
   /** 轉軸列數 */
   public static COLS: number = 5;
@@ -21,5 +23,11 @@ export default class GameConfig {
   public static SYMBOL_WIDTH: number = 100;
   public static SYMBOL_HEIGHT: number = 100;
 
-  // 之後有新常數也一樣用 public static 加在這裡
+  /** slotData 資料 */
+  public static slotData: number[][] = slotData;
 }
+
+// 遊戲啟動時 log slotData
+console.log('GameConfig.slotData', GameConfig.slotData);
+
+// 之後有新常數也一樣用 public static 加在這裡
