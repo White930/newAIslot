@@ -9,24 +9,30 @@ export class SlotReel extends Component {
   @property({ type: CCFloat }) public spinDuration = 2.0;
   @property({ type: [Node] }) public symbolNodes: Node[] = [];
   @property({ type: CCFloat }) private symbolHeight: number = 100;
-  @property({ type: CCFloat }) private spinSpeed: number = 1000; // 最大速度
-  @property({ type: CCFloat }) private accelerationTime: number = 0.3; // 加速時間
-  @property({ type: CCFloat }) private decelerationTime: number = 0.3; // 減速時間
+  @property({ type: CCFloat }) private spinSpeed: number = 1000;
+  @property({ type: CCFloat }) private accelerationTime: number = 0.3;
+  @property({ type: CCFloat }) private decelerationTime: number = 0.3;
   @property({ type: CCFloat }) public offsetY: number = 0;
 
   private isSpinning: boolean = false;
-  // private spinTween: any = null; // 移除 spinTween
   private currentSpeed: number = 0;
   private targetSpeed: number = 0;
-  private spinDirection: number = -1; // -1 表示向下
-
+  private spinDirection: number = -1;
   private spinElapsed: number = 0;
-  private spinPhase: 'idle' | 'accel' | 'steady' | 'decel' | 'rebound' = 'idle';
-  private initPositions: number[] = []; // 新增：紀錄每個 symbolNode 的初始 y 位置
-  private _finalResultForAll: number[] | undefined; // 保存最終結果，供 decel snap 用
+  private spinPhase: 'idle' | 'accel' | 'steady' | 'decel' = 'idle';
+  private reelOffset: number = 0; // float, 0~symbolNodes.length
+  private symbolIndices: number[] = []; // 畫面上每格要顯示的 symbol index
+  private resultIndices: number[] = [];
+
   start() {
-    // 記錄每個 symbolNode 的初始 y 位置
-    this.initPositions = this.symbolNodes.map(node => node.position.y);
+    // 初始化 symbolIndices 為隨機
+    if (this.spMgr && this.spMgr.symbols.length > 0) {
+      this.symbolIndices = [];
+      for (let i = 0; i < this.symbolNodes.length; i++) {
+        this.symbolIndices.push(Math.floor(Math.random() * this.spMgr.symbols.length));
+      }
+      this.updateSymbolNodes();
+    }
   }
 
   public spin() {
@@ -36,136 +42,78 @@ export class SlotReel extends Component {
     this.targetSpeed = this.spinSpeed;
     this.spinElapsed = 0;
     this.spinPhase = 'accel';
-
-    // 停止之前的 schedule
-    this.unschedule(this.updateSpin);
-
-    // 啟動動畫
+    this.reelOffset = 0;
     this.schedule(this.updateSpin, 0);
+  }
+
+  public setResult(resultIndices: number[]) {
+    this.resultIndices = resultIndices.slice();
   }
 
   private updateSpin = (dt: number) => {
     if (!this.isSpinning) return;
-
     this.spinElapsed += dt;
-
-    // 加速階段
+    // 狀態機
     if (this.spinPhase === 'accel') {
-      if (this.spinElapsed === 0 || this.spinElapsed - dt === 0) console.log('[SlotReel] 加速階段開始');
       const t = Math.min(this.spinElapsed / this.accelerationTime, 1);
       this.currentSpeed = this.targetSpeed * easing.quadOut(t);
       if (t >= 1) {
-        console.log('[SlotReel] 加速階段結束');
         this.spinPhase = 'steady';
         this.spinElapsed = 0;
       }
-    }
-    // 恆速階段
-    else if (this.spinPhase === 'steady') {
-      if (this.spinElapsed === 0 || this.spinElapsed - dt === 0) console.log('[SlotReel] 恆速階段開始');
+    } else if (this.spinPhase === 'steady') {
       this.currentSpeed = this.targetSpeed;
-      // 在恆速階段即將結束時，不再做 cascade 換圖
       if (this.spinElapsed >= this.spinDuration - this.accelerationTime - this.decelerationTime) {
-        console.log('[SlotReel] 恆速階段結束');
         this.spinPhase = 'decel';
         this.spinElapsed = 0;
       }
-    }
-    // 減速階段
-    else if (this.spinPhase === 'decel') {
-      if (this.spinElapsed === 0 || this.spinElapsed - dt === 0) console.log('[SlotReel] 減速階段開始');
+    } else if (this.spinPhase === 'decel') {
       const t = Math.min(this.spinElapsed / this.decelerationTime, 1);
       this.currentSpeed = this.targetSpeed * (1 - easing.quadOut(t));
       if (t >= 1) {
-        console.log('[SlotReel] 減速階段結束');
         this.isSpinning = false;
         this.unschedule(this.updateSpin);
         this.spinPhase = 'idle';
-        // 直接對齊所有 symbol 到正確位置並顯示最終結果
-        if (this._finalResultForAll && this.spMgr && this.spMgr.symbols) {
-          this.symbolNodes.forEach((symbolNode, idx) => {
-            symbolNode.setPosition(0, this.initPositions[idx], 0);
-            const symbol = symbolNode.getComponent(Symbol);
-            const spriteFrame = this.spMgr.symbols[this._finalResultForAll[idx]];
-            if (symbol && spriteFrame) {
-              symbol.setSymbol(spriteFrame);
-            }
-          });
+        // 停止時直接對齊結果
+        if (this.resultIndices.length > 0) {
+          // 假設 symbolNodes.length = visibleCount + 2 (上下各一格隱藏格)
+          const visibleCount = this.resultIndices.length;
+          const totalCount = this.symbolNodes.length;
+          this.symbolIndices = [
+            this.resultIndices[0],
+            ...this.resultIndices,
+            this.resultIndices[visibleCount - 1]
+          ];
         }
+        this.reelOffset = 0;
+        this.updateSymbolNodes();
         return;
       }
-      // 只有還沒 snap 時才 updateSymbols
-      this.updateSymbols(dt);
-      return;
     }
-    else if (this.spinPhase === 'rebound') {
-      // 回彈動畫進行中，不做任何事，動畫結束後可在 startRebound 裡設回 idle
+    // 滾動 reelOffset
+    this.reelOffset += (this.currentSpeed * dt) / this.symbolHeight;
+    while (this.reelOffset >= 1) {
+      this.reelOffset -= 1;
+      // 環狀下移一格，最下方補隨機
+      this.symbolIndices.pop();
+      this.symbolIndices.unshift(Math.floor(Math.random() * this.spMgr.symbols.length));
     }
-    // 只有在 idle 以外才 updateSymbols
-    if (this.spinPhase !== 'idle') {
-      this.updateSymbols(dt);
-    }
+    this.updateSymbolNodes();
   }
 
-  private updateSymbols(dt: number = 1/60) {
-    const moveDistance = this.currentSpeed * dt * this.spinDirection;
-    const minY = Math.min(...this.initPositions);
-    const maxY = Math.max(...this.initPositions);
-    const totalHeight = maxY - minY + this.symbolHeight;
-
-    // 判斷是否正在回彈（減速階段結束後 isSpinning 為 false）
-    const isRebound = !this.isSpinning && (this.spinPhase === 'decel' || this.spinPhase === 'rebound');
-
-    this.symbolNodes.forEach((symbolNode, index) => {
-      let newY = symbolNode.position.y + moveDistance;
-      // 只有在非回彈時才做循環移動
-      if (!isRebound) {
-        if (this.spinDirection < 0 && newY < minY - this.symbolHeight / 2) {
-          // 不顯示最上方 symbol 移動到最下方的動畫，直接瞬移到底部
-          newY = maxY + this.symbolHeight / 2;
-          // 將最下面移到最上面的 symbol 換成隨機 symbol
-          const symbol = symbolNode.getComponent(Symbol);
-          if (symbol && this.spMgr && this.spMgr.symbols.length > 0) {
-            const randomIdx = Math.floor(Math.random() * this.spMgr.symbols.length);
-            const randomSymbol = this.spMgr.symbols[randomIdx];
-            symbol.setSymbol(randomSymbol);
-          }
-        } else if (this.spinDirection > 0 && newY > maxY + this.symbolHeight / 2) {
-          // 不顯示最下方 symbol 移動到最上方的動畫，直接瞬移到頂部
-          newY = minY - this.symbolHeight / 2;
-          // 將最上面移到最下面的 symbol 換成隨機 symbol
-          const symbol = symbolNode.getComponent(Symbol);
-          if (symbol && this.spMgr && this.spMgr.symbols.length > 0) {
-            const randomIdx = Math.floor(Math.random() * this.spMgr.symbols.length);
-            const randomSymbol = this.spMgr.symbols[randomIdx];
-            symbol.setSymbol(randomSymbol);
-          }
-        }
-      }
-      symbolNode.setPosition(0, Math.round(newY), 0);
-    });
-  }
-
-  /**
-   * 設定本次 spin 結果，resultIndices 長度需等於畫面內 symbol 數量（通常是可見格數）
-   * @param resultIndices 例如 [0, 2, 5]，會對應到 spMgr.symbols 的 index
-   */
-  public setResult(resultIndices: number[]) {
-    if (!this.spMgr || !this.spMgr.symbols) return;
-    // 直接套用結果到畫面
-    const visibleCount = resultIndices.length;
-    const totalCount = this.symbolNodes.length;
-    // 保存最終結果，供 decel snap 對齊時使用
-    this._finalResultForAll = [
-      resultIndices[0],
-      ...resultIndices,
-      resultIndices[visibleCount - 1]
-    ];
-    for (let j = 0; j < totalCount; j++) {
-      const symbol = this.symbolNodes[j].getComponent(Symbol);
-      const spriteFrame = this.spMgr.symbols[this._finalResultForAll[j]];
-      if (symbol && spriteFrame) {
-        symbol.setSymbol(spriteFrame);
+  private updateSymbolNodes() {
+    // 讓 slot reel 的中心（可見格）對齊 y=0
+    const n = this.symbolNodes.length;
+    const centerIdx = Math.floor(n / 2);
+    for (let i = 0; i < n; i++) {
+      const node = this.symbolNodes[i];
+      // 讓中心格對齊 y=0，其他格依序排列
+      const y = (centerIdx - i - this.reelOffset) * this.symbolHeight + this.offsetY;
+      node.setPosition(0, y, 0);
+      const symbol = node.getComponent(Symbol);
+      const idx = this.symbolIndices[i] % this.spMgr.symbols.length;
+      if (symbol && this.spMgr && this.spMgr.symbols.length > 0) {
+        symbol.setSymbol(this.spMgr.symbols[idx]);
       }
     }
   }

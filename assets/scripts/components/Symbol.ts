@@ -3,11 +3,14 @@ const { ccclass, property } = _decorator;
 
 @ccclass('Symbol')
 export class Symbol extends Component {
-    @property(Sprite)
-    private sprite: Sprite = null!;
+    @property({ type: Sprite })
+    public sprite: Sprite = null!;
+
+    protected onLoad(): void {
+        this.sprite = this.getComponent(Sprite);
+    }
 
     start() {
-        this.sprite = this.getComponent(Sprite);
     }
 
     update(deltaTime: number) {

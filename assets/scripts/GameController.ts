@@ -20,12 +20,19 @@ export class GameController extends Component {
     @property(CCInteger)
     private totalSymbols: number = 10;
 
-    public setReels(reels: SlotReel[]) {
-        this.reels = reels;
+    public startSpin() {
+        // 每個 reel 增加遞增延遲
+        this.reels.forEach((reel, i) => {
+            setTimeout(() => {
+                reel.spin();
+            }, i * 150); // 每個 reel 間隔 150ms，可依需求調整
+        });
     }
 
-    public startSpin() {
-        this.reels[0].spin();
-        // this.reels.forEach(reel => reel.spin());
+    public setReels(reels: SlotReel[]) {
+        // 直接覆蓋 reels 陣列內容，確保 reference 正確
+        this.reels.length = 0;
+        reels.forEach(reel => this.reels.push(reel));
+        // 若有 UI 需刷新，可在此加上事件或 callback
     }
 }

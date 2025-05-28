@@ -50,22 +50,22 @@ export class SlotLayoutGenerator extends Component {
       return;
     }
 
-    // 3. 檢查是否已存在 GameController
-    this.gameController = this.node.getComponent(GameController);
+    // 3. 在整個場景樹中尋找 GameController（不要用 this.node）
+    this.gameController = scene.getComponentInChildren(GameController);
     if (!this.gameController) {
-      // 如果沒有 GameController，則創建一個
-      this.node.name = 'GameController';
-      this.gameController = this.node.addComponent(GameController);
-      console.log('SlotLayoutGenerator: 創建新的 GameController');
-    } else {
-      console.log('SlotLayoutGenerator: 使用現有的 GameController');
+      console.error('SlotLayoutGenerator: 找不到 GameController 元件');
+      return;
     }
 
-    // 4. 讀取它的 symbols
-    this.symbols = this.spriteManager.symbols;
-    console.log('SlotLayoutGenerator symbols loaded:', this.symbols);
+    // 4. 讀取 symbols
+    if (this.spriteManager.symbols && this.spriteManager.symbols.length > 0) {
+      this.symbols = this.spriteManager.symbols;
+    } else {
+      this.symbols = [];
+      console.warn('SlotLayoutGenerator: SpriteManager.symbols 為空');
+    }
 
-    // 5. 之後就可以用 this.symbols 來做 5x3 版面生成
+    // 5. 產生 slot layout
     this.generateLayout();
   }
 
@@ -88,29 +88,39 @@ export class SlotLayoutGenerator extends Component {
       reels.push(reel);
 
       for (let row = 0; row < this.rows; row++) {
-        const symbolNode = new Node(`Slot_${col}_${row}`);
+        const symbolNode = new Node(`Symbol_${col}_${row}`);
         symbolNode.parent = reelNode;
 
         // 大小
         const ui = symbolNode.addComponent(UITransform);
         ui.setContentSize(this.cellSize, this.cellSize);
 
-        // 随机图
+        // 隨機圖
         const sp = symbolNode.addComponent(Sprite);
         if (this.symbols.length > 0) {
           sp.spriteFrame = this.symbols[Math.floor(Math.random() * this.symbols.length)];
         }
 
         reel.symbolNodes.push(symbolNode);
-        symbolNode.addComponent(Symbol);
+        const symbol = symbolNode.addComponent(Symbol);
+        symbol.sprite = sp;
 
-        symbolNode.setPosition(0, this.offsetY - row * this.spacingY, 0);
+        // 讓中心格在 y=0
+        const centerIdx = Math.floor((this.rows - 1) / 2);
+        symbolNode.setPosition(0, (centerIdx - row) * this.spacingY + this.offsetY, 0);
       }
     }
 
     // 將生成的 reels 添加到 GameController
-    if (this.gameController) {
-      this.gameController.setReels(reels);
+    if (this.gameController && reels.length > 0) {
+      console.log('SlotLayoutGenerator: 更新 GameController 的 reels');
+      // 直接用 setReels 方法（若有）或 splice 覆蓋
+      if (typeof this.gameController.setReels === 'function') {
+        this.gameController.setReels(reels);
+      } else {
+        this.gameController.reels.splice(0, this.gameController.reels.length, ...reels);
+      }
+      // 若有 UI 需刷新，可在此加上事件或 callback
     }
   }
 }
