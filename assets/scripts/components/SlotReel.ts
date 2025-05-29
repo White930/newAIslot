@@ -1,7 +1,7 @@
 import { _decorator, Component, Node, Sprite, SpriteFrame, CCFloat, easing, tween } from 'cc';
 import { SpriteManager } from '.././SpriteManager';
 import { Symbol } from './Symbol';
-import GameConfig from '../config/GameConfig';
+// import GameConfig from '../config/GameConfig'; // Removed GameConfig import
 import { SpinPhase } from './SpinPhase';
 const { ccclass, property } = _decorator;
 
@@ -13,8 +13,8 @@ export class SlotReel extends Component {
   public spinDuration = 2.0;
   @property({ type: [Node], tooltip: "轉軸上的圖標節點陣列" }) 
   public symbolNodes: Node[] = [];
-  @property({ type: CCFloat, tooltip: "單個圖標的高度 (像素)" }) 
-  private symbolHeight: number = 100;
+  // @property({ type: CCFloat, tooltip: "單個圖標的高度 (像素)" }) // No longer a property, will be injected
+  // private symbolHeight: number = 100; // No longer a property, will be injected
   @property({ type: CCFloat, tooltip: "基礎旋轉速度 (像素/秒)" }) 
   private spinSpeed: number = 1000;
   @property({ type: CCFloat, tooltip: "加速階段持續時間 (秒)" }) 
@@ -47,19 +47,39 @@ export class SlotReel extends Component {
   private spinCount: number = 0;      // 旋轉次數計數器
   private reelIndex: number = 0;      // 此轉軸在 GameController 中的索引 (從0開始)
 
-  start() {
-    // 從節點名稱解析並儲存 reelIndex (例如 "Reel0" -> 0)
-    this.reelIndex = this.node.name.match(/\d+/) ? parseInt(this.node.name.match(/\d+/)[0]) : 0;
+  // New private members for injected dependencies
+  private private_reelStripData: number[] = [];
+  private private_yGap: number = 0;
+  private private_symbolHeight: number = 100; // Default value, will be overridden
+
+  // New initialize method
+  public initialize(reelId: number, reelStripData: number[], yGap: number, symbolHeight: number) {
+    this.reelIndex = reelId;
+    this.private_reelStripData = reelStripData;
+    this.private_yGap = yGap;
+    this.private_symbolHeight = symbolHeight;
+
+    // Initialization logic previously in start() that depends on these values
+    // 從節點名稱解析並儲存 reelIndex (例如 "Reel0" -> 0) - reelIndex is now passed directly
+    // this.reelIndex = this.node.name.match(/\\d+/) ? parseInt(this.node.name.match(/\\d+/)[0]) : 0;
     
-    // 從 GameConfig 獲取此轉軸的圖標數據
-    const slotData = GameConfig.slotData;
-    const currentReelStrip = slotData[this.reelIndex % slotData.length]; // 使用 % 避免索引越界
+    // 從 GameConfig 獲取此轉軸的圖標數據 - Now uses injected data
+    // const slotData = GameConfig.slotData;
+    // const currentReelStrip = slotData[this.reelIndex % slotData.length]; // 使用 % 避免索引越界
+    const currentReelStrip = this.private_reelStripData; // Use the injected reel strip data directly
+
     // 初始化 symbolIndices，填滿可見的 symbolNodes
     this.symbolIndices = currentReelStrip.slice(0, this.symbolNodes.length);
     // 設定 reelDataCursor 的初始位置，指向 strip 中 symbolIndices 後的第一個圖標
     this.reelDataCursor = this.symbolIndices.length % currentReelStrip.length;
     
     this.updateSymbolNodes(); // 更新節點顯示
+  }
+
+  start() {
+    // Most initialization is moved to initialize()
+    // If there's any other start logic that doesn't depend on injected data, it can remain here.
+    // For now, we assume GameController will call initialize() after the node is ready.
   }
   public spin() {
     if (this.isSpinning) return; // 如果已在旋轉，則不執行
@@ -134,9 +154,9 @@ export class SlotReel extends Component {
     // 加速、穩定、減速 (只要速度 > 0) 階段的通用圖標滾動邏輯
     if (this.isSpinning || (this.spinPhase === SpinPhase.Decel && this.currentSpeed > 0)) {
         // 根據目前速度和時間間隔，計算滾動偏移量 (單位：圖標高度)
-        this.reelOffset += (this.currentSpeed * dt) / this.symbolHeight; 
-        const slotData = GameConfig.slotData;
-        const currentReelData = slotData[this.reelIndex % slotData.length];
+        this.reelOffset += (this.currentSpeed * dt) / this.private_symbolHeight; // Use injected symbolHeight
+        // const slotData = GameConfig.slotData; // Removed GameConfig access
+        const currentReelData = this.private_reelStripData; // Use injected reel strip data
 
         // 當偏移量超過一個圖標高度時，進行圖標的增補和移除
         while (this.reelOffset >= 1) { // 向下滾動 (正偏移)
@@ -167,9 +187,9 @@ export class SlotReel extends Component {
       // 計算每個圖標節點的 Y 座標
       // (centerIdx - i) 使節點以上下對稱方式排列
       // - this.reelOffset 應用滾動偏移
-      // * GameConfig.Y_GAP 轉換為像素距離
+      // * GameConfig.Y_GAP 轉換為像素距離 // Now private_yGap
       // + this.offsetY 應用整體轉軸的Y軸偏移
-      const y = (centerIdx - i - this.reelOffset) * GameConfig.Y_GAP + this.offsetY;
+      const y = (centerIdx - i - this.reelOffset) * this.private_yGap + this.offsetY; // Use injected yGap
       node.setPosition(0, y, 0);
       
       const symbolComponent = node.getComponent(Symbol);
