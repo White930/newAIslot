@@ -4,6 +4,7 @@ import { SlotReel } from '../components/SlotReel';
 import { Symbol } from '../components/Symbol';
 import { SpriteManager } from '../SpriteManager';
 import { GameController } from '../GameController';
+import GameConfig from '../config/GameConfig';
 const { ccclass, property, executeInEditMode } = _decorator;
 
 @ccclass('SlotLayoutGenerator')
@@ -12,30 +13,27 @@ export class SlotLayoutGenerator extends Component {
 
   public symbols: SpriteFrame[] = [];
 
-  @property
-  public columns = 5;
-
-  @property
-  public rows = 5;
-
-  @property
-  public cellSize = 100;
-
-  @property
-  public spacingX = 150;
-
-  @property
-  public spacingY = 120;
-
-  @property
-  public offsetX = 0;
-  @property
-  public offsetY = 0;
+  public columns = GameConfig.COLS;
+  public rows = GameConfig.ROWS;
+  public cellSize = GameConfig.SYMBOL_WIDTH;
+  public spacingX = GameConfig.X_GAP;
+  public spacingY = GameConfig.Y_GAP;
+  public offsetX = GameConfig.START_X;
+  public offsetY = GameConfig.START_Y;
 
   private gameController: GameController | null = null;
   private spriteManager: SpriteManager | null = null;
 
   onEnable() {
+    // 先抓 GameConfig 設定
+    this.columns = GameConfig.COLS;
+    this.rows = GameConfig.ROWS;
+    this.cellSize = GameConfig.SYMBOL_WIDTH;
+    this.spacingX = GameConfig.X_GAP;
+    this.spacingY = GameConfig.Y_GAP;
+    this.offsetX = GameConfig.START_X;
+    this.offsetY = GameConfig.START_Y;
+
     // 1. 取得目前的 Scene 根節點
     const scene = director.getScene();
     if (!scene) {

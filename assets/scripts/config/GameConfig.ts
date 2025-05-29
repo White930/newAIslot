@@ -5,12 +5,12 @@ export default class GameConfig {
   /** 轉軸列數 */
   public static COLS: number = 5;
   /** 轉軸行數 */
-  public static ROWS: number = 3;
+  public static ROWS: number = 5;
 
   /** 每格水平間距 (像素) */
-  public static X_GAP: number = 100;
+  public static X_GAP: number = 150;
   /** 每格垂直間距 (像素) */
-  public static Y_GAP: number = 100;
+  public static Y_GAP: number = 120;
 
   /** 左上角第一格起始座標 */
   public static START_X: number = 0;

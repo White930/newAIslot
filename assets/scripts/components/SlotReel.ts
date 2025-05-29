@@ -133,8 +133,8 @@ export class SlotReel extends Component {
     const centerIdx = Math.floor(n / 2);
     for (let i = 0; i < n; i++) {
       const node = this.symbolNodes[i];
-      // 讓中心格對齊 y=0，其他格依序排列
-      const y = (centerIdx - i - this.reelOffset) * this.symbolHeight + this.offsetY;
+      // 使用 GameConfig.Y_GAP 作為垂直間距
+      const y = (centerIdx - i - this.reelOffset) * GameConfig.Y_GAP + this.offsetY;
       node.setPosition(0, y, 0);
       const symbol = node.getComponent(Symbol);
       const idx = this.symbolIndices[i] % this.spMgr.symbols.length;
