@@ -8,31 +8,19 @@ export class GameController extends Component {
     @property([SlotReel])
     public reels: SlotReel[] = [];
 
-    @property(CCFloat)
-    private spinDuration: number = 2.0;
-
-    @property(CCInteger)
-    private totalReels: number = 5;
-
-    @property(CCInteger)
-    private totalRows: number = 3;
-
-    @property(CCInteger)
-    private totalSymbols: number = 10;
-
     public startSpin() {
-        // 每個 reel 增加遞增延遲
+        // 純隨機模式：不設置預定結果，讓轉軸自然停止
+        console.log('[GameController] 開始轉動 - 純隨機模式');
+        
         this.reels.forEach((reel, i) => {
             setTimeout(() => {
                 reel.spin();
-            }, i * 150); // 每個 reel 間隔 150ms，可依需求調整
+            }, i * 150); // 每個轉軸啟動間隔 150ms
         });
     }
 
     public setReels(reels: SlotReel[]) {
-        // 直接覆蓋 reels 陣列內容，確保 reference 正確
-        this.reels.length = 0;
+        this.reels.length = 0; // 清空現有陣列
         reels.forEach(reel => this.reels.push(reel));
-        // 若有 UI 需刷新，可在此加上事件或 callback
     }
 }
