@@ -2,6 +2,7 @@ import { _decorator, Component, Node, Sprite, SpriteFrame, CCFloat, easing, twee
 import { SpriteManager } from '.././SpriteManager';
 import { Symbol } from './Symbol';
 import { SpinPhase } from './SpinPhase';
+import { GameEvents } from '../events/GameEvents'; // 引入事件定義
 const { ccclass, property } = _decorator;
 
 @ccclass('SlotReel')
@@ -56,7 +57,7 @@ export class SlotReel extends Component {
     this.private_symbolHeight = symbolHeight;
 
     // 監聽開始旋轉指令
-    this.node.on('START_REEL_COMMAND', this.onStartReelCommand, this);
+    this.node.on(GameEvents.START_REEL_COMMAND, this.onStartReelCommand, this);
     
     const currentReelStrip = this.private_reelStripData;
 
@@ -222,7 +223,7 @@ export class SlotReel extends Component {
                 this.spinPhase = SpinPhase.Idle;
                 
                 // 發送轉軸停止事件
-                this.node.emit('REEL_STOPPED_EVENT', { 
+                this.node.emit(GameEvents.REEL_STOPPED_EVENT, { 
                     reelId: this.reelIndex, 
                     symbols: [...this.symbolIndices] // 發送圖標副本
                 });
@@ -233,6 +234,6 @@ export class SlotReel extends Component {
 
   onDestroy() {
     this.unschedule(this.updateSpin);
-    this.node.off('START_REEL_COMMAND', this.onStartReelCommand, this); // 清理事件監聽
+    this.node.off(GameEvents.START_REEL_COMMAND, this.onStartReelCommand, this); // 清理事件監聽
   }
 }

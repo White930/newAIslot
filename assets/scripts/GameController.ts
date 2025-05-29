@@ -2,6 +2,7 @@
 import { _decorator, Component, Node, UITransform, SpriteFrame, CCInteger, CCFloat } from 'cc';
 import { SlotReel } from './components/SlotReel';
 import GameConfig from './config/GameConfig'; // Import GameConfig
+import { GameEvents } from './events/GameEvents'; // 引入事件定義
 const { ccclass, property } = _decorator;
 
 @ccclass('GameController')
@@ -26,7 +27,7 @@ export class GameController extends Component {
             reel.initialize(reelId, currentReelStrip, yGap, symbolHeight);
 
             // 監聽此轉軸停止事件
-            reel.node.on('REEL_STOPPED_EVENT', this.onReelStopped, this);
+            reel.node.on(GameEvents.REEL_STOPPED_EVENT, this.onReelStopped, this);
         });
     }
 
@@ -36,8 +37,7 @@ export class GameController extends Component {
         
         this.reels.forEach((reel, i) => {
             setTimeout(() => {
-                // reel.spin(); // Old direct call
-                reel.node.emit('START_REEL_COMMAND'); // Emit event to start the reel
+                reel.node.emit(GameEvents.START_REEL_COMMAND); // Emit event to start the reel
             }, i * 150); // 每個轉軸啟動間隔 150ms
         });
     }
@@ -62,7 +62,7 @@ export class GameController extends Component {
         // Clean up event listeners when GameController is destroyed
         this.reels.forEach(reel => {
             if (reel && reel.node) {
-                reel.node.off('REEL_STOPPED_EVENT', this.onReelStopped, this);
+                reel.node.off(GameEvents.REEL_STOPPED_EVENT, this.onReelStopped, this);
             }
         });
     }
